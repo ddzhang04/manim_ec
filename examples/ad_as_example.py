@@ -35,7 +35,8 @@ class NegativeDemandShock(Scene):
 class AdverseSupplyShock(Scene):
     """Oil price spike → SRAS up → slowly self-corrects back."""
     def construct(self):
-        diagram = ADASDiagram(m=20, v=1, sras_price=4, lras_y=5)
+        diagram = ADASDiagram(m=20, v=1, sras_price=4, lras_y=5,
+                              numbered_eq=True)
         self.play(Create(diagram))
         self.wait()
 

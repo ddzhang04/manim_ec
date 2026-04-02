@@ -27,6 +27,7 @@ class ADASDiagram(EconDiagram):
         sras_price=4,
         lras_y=5,
         show_equilibrium=True,
+        numbered_eq=False,
         sras_only=False,
         lras_only=False,
         **kwargs,
@@ -61,7 +62,8 @@ class ADASDiagram(EconDiagram):
             )
 
         if show_equilibrium and not lras_only:
-            self.mark_equilibrium("ad", "sras", label_x="Y*", label_y="P*")
+            self.mark_equilibrium("ad", "sras", label_x="Y", label_y="P",
+                                  numbered=numbered_eq)
 
     @staticmethod
     def _make_ad_func(m, v):
@@ -139,6 +141,14 @@ class ADASDiagram(EconDiagram):
 
     # ---- Demand shocks ----
 
+    def _append_long_run(self, anims, lr_run_time, show_arrows):
+        """Helper: clear old arrows then append long-run adjustment."""
+        clear = self.clear_arrows()
+        if clear is not None:
+            anims.append(clear)
+        anims.append(self.long_run_adjust(run_time=lr_run_time,
+                                          show_arrows=show_arrows))
+
     def positive_demand_shock(self, m=None, v=None, long_run=True,
                               lr_run_time=_LR_RUN_TIME, show_arrows=False):
         """Positive demand shock (e.g. increase in M or V).
@@ -150,8 +160,7 @@ class ADASDiagram(EconDiagram):
         """
         anims = [self.shift_ad(m=m, v=v, show_arrows=show_arrows)]
         if long_run:
-            anims.append(self.long_run_adjust(run_time=lr_run_time,
-                                              show_arrows=show_arrows))
+            self._append_long_run(anims, lr_run_time, show_arrows)
         return anims
 
     def negative_demand_shock(self, m=None, v=None, long_run=True,
@@ -165,8 +174,7 @@ class ADASDiagram(EconDiagram):
         """
         anims = [self.shift_ad(m=m, v=v, show_arrows=show_arrows)]
         if long_run:
-            anims.append(self.long_run_adjust(run_time=lr_run_time,
-                                              show_arrows=show_arrows))
+            self._append_long_run(anims, lr_run_time, show_arrows)
         return anims
 
     # ---- Supply shocks ----
@@ -182,8 +190,7 @@ class ADASDiagram(EconDiagram):
         """
         anims = [self.shift_sras(sras_price, show_arrows=show_arrows)]
         if long_run:
-            anims.append(self.long_run_adjust(run_time=lr_run_time,
-                                              show_arrows=show_arrows))
+            self._append_long_run(anims, lr_run_time, show_arrows)
         return anims
 
     def positive_supply_shock(self, sras_price, long_run=True,
@@ -197,6 +204,5 @@ class ADASDiagram(EconDiagram):
         """
         anims = [self.shift_sras(sras_price, show_arrows=show_arrows)]
         if long_run:
-            anims.append(self.long_run_adjust(run_time=lr_run_time,
-                                              show_arrows=show_arrows))
+            self._append_long_run(anims, lr_run_time, show_arrows)
         return anims
