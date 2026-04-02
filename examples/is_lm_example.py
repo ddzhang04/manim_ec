@@ -1,18 +1,32 @@
-from manim import Create, Scene
+from manim import Create, Scene, Text, Write, UP
 from manim_ec import ISLMDiagram
 
 
-class ISLMScene(Scene):
+class MonetaryExpansion(Scene):
+    """Money supply increase → LM shifts right → lower r, higher Y."""
     def construct(self):
-        # IS: r = a/b - Y/b = 5 - 0.5Y
-        # LM: r = (kY - Ms)/h = 0.5Y - 5
-        # Equilibrium: 5 - 0.5Y = 0.5Y - 5 => Y=10... too high
-        # Use defaults: a=10, b=2, ms=5, k=0.5, h=1
-        diagram = ISLMDiagram()
+        diagram = ISLMDiagram(numbered_eq=True)
         self.play(Create(diagram))
         self.wait()
 
-        # Monetary expansion: increase money supply from 5 to 8
-        # LM shifts right/down => lower r, higher Y
-        self.play(diagram.shift_lm(ms=8))
+        label = Text("Monetary expansion: Ms ↑", font_size=28).to_edge(UP)
+        self.play(Write(label))
+
+        for anim in diagram.monetary_expansion(ms=5, show_arrows=True):
+            self.play(anim)
+            self.wait(0.5)
+
+
+class FiscalExpansion(Scene):
+    """Government spending increase → IS shifts right → higher r, higher Y."""
+    def construct(self):
+        diagram = ISLMDiagram(numbered_eq=True)
+        self.play(Create(diagram))
         self.wait()
+
+        label = Text("Fiscal expansion: G ↑", font_size=28).to_edge(UP)
+        self.play(Write(label))
+
+        for anim in diagram.fiscal_expansion(a=13, show_arrows=True):
+            self.play(anim)
+            self.wait(0.5)
