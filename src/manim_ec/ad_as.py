@@ -3,7 +3,7 @@ from manim import BLUE, GREEN, RED, AnimationGroup, Line, Transform, UP
 from .base import EconDiagram
 
 # Default long-run adjustment duration (seconds)
-_LR_RUN_TIME = 3
+_LR_RUN_TIME = 2
 
 
 class ADASDiagram(EconDiagram):
@@ -27,29 +27,40 @@ class ADASDiagram(EconDiagram):
         sras_price=4,
         lras_y=5,
         show_equilibrium=True,
+        sras_only=False,
+        lras_only=False,
         **kwargs,
     ):
+        if sras_only and lras_only:
+            raise ValueError("sras_only and lras_only cannot both be True")
+
         super().__init__(x_label="Y", y_label="P", **kwargs)
 
         self._m = m
         self._v = v
         self._sras_price = sras_price
+        self._lras_y = lras_y
 
         ad_func = self._make_ad_func(m, v)
         sras_func = self._make_sras_func(sras_price)
 
+        y_max = kwargs.get("y_range", [0, 10, 1])[1]
+        ad_x_min = self._ad_x_min(m, v, y_max)
         self.ad = self.add_curve(
-            "ad", ad_func, x_range=[0.5, 10], color=BLUE, label_text="AD"
+            "ad", ad_func, x_range=[ad_x_min, 10], color=BLUE, label_text="AD"
         )
-        self.sras = self.add_curve(
-            "sras", sras_func, x_range=[0, 10], color=RED, label_text="SRAS"
-        )
-        self.lras = self.add_vertical_line(
-            "lras", lras_y, color=GREEN, label_text="LRAS"
-        )
-        self._lras_y = lras_y
 
-        if show_equilibrium:
+        if not lras_only:
+            self.sras = self.add_curve(
+                "sras", sras_func, x_range=[0, 10], color=RED, label_text="SRAS"
+            )
+
+        if not sras_only:
+            self.lras = self.add_vertical_line(
+                "lras", lras_y, color=GREEN, label_text="LRAS"
+            )
+
+        if show_equilibrium and not lras_only:
             self.mark_equilibrium("ad", "sras", label_x="Y*", label_y="P*")
 
     @staticmethod
@@ -57,6 +68,12 @@ class ADASDiagram(EconDiagram):
         """P = MV / Y (quantity theory of money)."""
         mv = m * v
         return lambda y: mv / y
+
+    @staticmethod
+    def _ad_x_min(m, v, y_max):
+        """Minimum x so AD stays within the visible y range."""
+        # P = MV/Y ≤ y_max  →  Y ≥ MV/y_max
+        return max((m * v) / y_max, 0.1)
 
     @staticmethod
     def _make_sras_func(price):
@@ -68,20 +85,25 @@ class ADASDiagram(EconDiagram):
         """Long-run equilibrium price: P = MV / Y_potential."""
         return (self._m * self._v) / self._lras_y
 
-    def shift_ad(self, m=None, v=None, run_time=1):
+    def shift_ad(self, m=None, v=None, run_time=1, show_arrows=False):
         """Animate AD shifting due to changes in M and/or V."""
         self._m = m if m is not None else self._m
         self._v = v if v is not None else self._v
         new_func = self._make_ad_func(self._m, self._v)
+        y_max = self.axes.y_range[1]
+        x_min = self._ad_x_min(self._m, self._v, y_max)
         return self.get_shift_animation(
-            "ad", new_func, new_x_range=[0.5, 10], run_time=run_time
+            "ad", new_func, new_x_range=[x_min, 10], run_time=run_time,
+            show_arrows=show_arrows,
         )
 
-    def shift_sras(self, sras_price, run_time=1):
+    def shift_sras(self, sras_price, run_time=1, show_arrows=False):
         """Animate SRAS shifting to a new price level."""
         self._sras_price = sras_price
         new_func = self._make_sras_func(sras_price)
-        return self.get_shift_animation("sras", new_func, run_time=run_time)
+        return self.get_shift_animation(
+            "sras", new_func, run_time=run_time, show_arrows=show_arrows,
+        )
 
     def shift_lras(self, new_y, run_time=1):
         """Animate LRAS moving to a new potential output."""
@@ -105,19 +127,20 @@ class ADASDiagram(EconDiagram):
 
         return AnimationGroup(*anims)
 
-    def long_run_adjust(self, run_time=_LR_RUN_TIME):
+    def long_run_adjust(self, run_time=_LR_RUN_TIME, show_arrows=False):
         """SRAS slowly shifts to restore long-run equilibrium.
 
         After a shock moves output away from LRAS, SRAS gradually adjusts
         to P = MV / Y_potential, bringing the economy back to potential output.
-        The animation is slow by default (3s) to show the gradual adjustment.
+        The animation is slow by default (2s) to show the gradual adjustment.
         """
-        return self.shift_sras(self._lr_price, run_time=run_time)
+        return self.shift_sras(self._lr_price, run_time=run_time,
+                               show_arrows=show_arrows)
 
     # ---- Demand shocks ----
 
     def positive_demand_shock(self, m=None, v=None, long_run=True,
-                              lr_run_time=_LR_RUN_TIME):
+                              lr_run_time=_LR_RUN_TIME, show_arrows=False):
         """Positive demand shock (e.g. increase in M or V).
 
         Short run: AD shifts right → output rises above potential, price unchanged.
@@ -125,13 +148,14 @@ class ADASDiagram(EconDiagram):
 
         Returns a list of animations to play in sequence.
         """
-        anims = [self.shift_ad(m=m, v=v)]
+        anims = [self.shift_ad(m=m, v=v, show_arrows=show_arrows)]
         if long_run:
-            anims.append(self.long_run_adjust(run_time=lr_run_time))
+            anims.append(self.long_run_adjust(run_time=lr_run_time,
+                                              show_arrows=show_arrows))
         return anims
 
     def negative_demand_shock(self, m=None, v=None, long_run=True,
-                              lr_run_time=_LR_RUN_TIME):
+                              lr_run_time=_LR_RUN_TIME, show_arrows=False):
         """Negative demand shock (e.g. decrease in M or V).
 
         Short run: AD shifts left → output falls below potential, price unchanged.
@@ -139,15 +163,16 @@ class ADASDiagram(EconDiagram):
 
         Returns a list of animations to play in sequence.
         """
-        anims = [self.shift_ad(m=m, v=v)]
+        anims = [self.shift_ad(m=m, v=v, show_arrows=show_arrows)]
         if long_run:
-            anims.append(self.long_run_adjust(run_time=lr_run_time))
+            anims.append(self.long_run_adjust(run_time=lr_run_time,
+                                              show_arrows=show_arrows))
         return anims
 
     # ---- Supply shocks ----
 
     def adverse_supply_shock(self, sras_price, long_run=True,
-                             lr_run_time=_LR_RUN_TIME):
+                             lr_run_time=_LR_RUN_TIME, show_arrows=False):
         """Adverse supply shock (e.g. oil price spike, cost push).
 
         Short run: SRAS shifts up → price rises, output falls (stagflation).
@@ -155,21 +180,23 @@ class ADASDiagram(EconDiagram):
 
         Returns a list of animations to play in sequence.
         """
-        anims = [self.shift_sras(sras_price)]
+        anims = [self.shift_sras(sras_price, show_arrows=show_arrows)]
         if long_run:
-            anims.append(self.long_run_adjust(run_time=lr_run_time))
+            anims.append(self.long_run_adjust(run_time=lr_run_time,
+                                              show_arrows=show_arrows))
         return anims
 
     def positive_supply_shock(self, sras_price, long_run=True,
-                              lr_run_time=_LR_RUN_TIME):
-        """Positive supply shock (e.g. technology improvement, cheaper inputs).
+                              lr_run_time=_LR_RUN_TIME, show_arrows=False):
+        """Positive supply shock
 
         Short run: SRAS shifts down → price falls, output rises.
         Long run: SRAS slowly shifts back up as economy self-corrects.
 
         Returns a list of animations to play in sequence.
         """
-        anims = [self.shift_sras(sras_price)]
+        anims = [self.shift_sras(sras_price, show_arrows=show_arrows)]
         if long_run:
-            anims.append(self.long_run_adjust(run_time=lr_run_time))
+            anims.append(self.long_run_adjust(run_time=lr_run_time,
+                                              show_arrows=show_arrows))
         return anims

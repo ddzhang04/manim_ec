@@ -42,7 +42,7 @@ class AdverseSupplyShock(Scene):
         label = Text("Adverse supply shock: costs ↑", font_size=28).to_edge(UP)
         self.play(Write(label))
 
-        for anim in diagram.adverse_supply_shock(sras_price=6):
+        for anim in diagram.adverse_supply_shock(sras_price=6, show_arrows=True):
             self.play(anim)
             self.wait(0.5)
 

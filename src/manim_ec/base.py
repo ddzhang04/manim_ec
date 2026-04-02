@@ -1,9 +1,12 @@
 import numpy as np
 from manim import (
+    Arrow,
     Axes,
     AnimationGroup,
     DashedLine,
     Dot,
+    FadeIn,
+    FadeOut,
     Text,
     Transform,
     VGroup,
@@ -152,9 +155,69 @@ class EconDiagram(VGroup):
         self.add(eq_group)
         return eq_group
 
+    def _get_eq_coords(self):
+        """Return (x, y) of the current equilibrium, or None."""
+        if not self._eq_curve_names:
+            return None
+        a, b = self._eq_curve_names
+        func_a = self._curve_funcs[a]
+        func_b = self._curve_funcs[b]
+        x_eq = find_intersection(func_a, func_b, self.axes.x_range)
+        if x_eq is None:
+            return None
+        return x_eq, func_a(x_eq)
+
+    def _build_axis_arrows(self, old_xy, new_xy, arrow_color=WHITE):
+        """Build arrows near the axes between old and new equilibrium values.
+
+        Arrows are offset slightly from the axis so they don't overlap ticks.
+        Returns a VGroup with up to two arrows (x-axis and y-axis).
+        """
+        old_x, old_y = old_xy
+        new_x, new_y = new_xy
+        group = VGroup()
+        # Small offset in scene units so arrows sit beside, not on, the axis
+        axis_offset = 0.15
+
+        # Arrow along x-axis (shifted down slightly)
+        if abs(new_x - old_x) > 0.05:
+            start = self.axes.c2p(old_x, 0) + DOWN * axis_offset
+            end = self.axes.c2p(new_x, 0) + DOWN * axis_offset
+            x_arrow = Arrow(
+                start, end,
+                color=arrow_color,
+                buff=0,
+                stroke_width=4,
+                max_tip_length_to_length_ratio=0.2,
+            )
+            group.add(x_arrow)
+
+        # Arrow along y-axis (shifted left slightly)
+        if abs(new_y - old_y) > 0.05:
+            start = self.axes.c2p(0, old_y) + LEFT * axis_offset
+            end = self.axes.c2p(0, new_y) + LEFT * axis_offset
+            y_arrow = Arrow(
+                start, end,
+                color=arrow_color,
+                buff=0,
+                stroke_width=4,
+                max_tip_length_to_length_ratio=0.2,
+            )
+            group.add(y_arrow)
+
+        return group
+
     def get_shift_animation(self, curve_name, new_func, new_x_range=None,
-                            run_time=1):
-        """Return a Transform animation that shifts a curve to a new function."""
+                            run_time=1, show_arrows=False, arrow_color=WHITE):
+        """Return a Transform animation that shifts a curve to a new function.
+
+        Parameters:
+            show_arrows: If True, draw arrows on the axes showing
+                the direction of equilibrium change.
+            arrow_color: Color for the axis arrows (default WHITE).
+        """
+        old_eq = self._get_eq_coords() if show_arrows else None
+
         old_curve = self.curves[curve_name]
         x_range = new_x_range or self._curve_x_ranges[curve_name]
         new_curve = self.axes.plot(
@@ -173,11 +236,28 @@ class EconDiagram(VGroup):
 
         # Animate equilibrium to the new intersection
         if self._eq_curve_names and curve_name in self._eq_curve_names:
-            new_eq = self._build_eq_group(
+            new_eq_group = self._build_eq_group(
                 *self._eq_curve_names, self._eq_label_x, self._eq_label_y
             )
+            if new_eq_group is not None:
+                old_eq_group = self._eq_group
+                anims.append(Transform(old_eq_group, new_eq_group, run_time=run_time))
+
+        # Axis arrows showing direction of change
+        if show_arrows and old_eq is not None:
+            # Fade out previous arrows so they don't stack
+            if hasattr(self, '_axis_arrows') and self._axis_arrows is not None:
+                old_arrows = self._axis_arrows
+                self._axis_arrows = None
+                self.remove(old_arrows)
+                anims.append(FadeOut(old_arrows, run_time=run_time * 0.3))
+
+            new_eq = self._get_eq_coords()
             if new_eq is not None:
-                old_eq = self._eq_group
-                anims.append(Transform(old_eq, new_eq, run_time=run_time))
+                arrows = self._build_axis_arrows(old_eq, new_eq, arrow_color)
+                if len(arrows) > 0:
+                    self._axis_arrows = arrows
+                    self.add(arrows)
+                    anims.append(FadeIn(arrows, run_time=run_time))
 
         return AnimationGroup(*anims)
