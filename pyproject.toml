@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "manim-ec"
+version = "0.1.0"
+description = "Economics helpers and diagrams for Manim"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "manim>=0.20.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.entry-points."manim.plugins"]
+manim_ec = "manim_ec"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/manim_ec"]
