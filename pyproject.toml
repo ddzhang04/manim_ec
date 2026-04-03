@@ -5,15 +5,31 @@ build-backend = "hatchling.build"
 [project]
 name = "manim-ec"
 version = "0.1.0"
-description = "Economics helpers and diagrams for Manim"
+description = "Animated economics diagrams for Manim — AD-AS, IS-LM, Solow, Supply & Demand with equilibrium markers, shift animations, and linked multi-panel layouts"
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "ddzhang04" }]
+keywords = ["manim", "economics", "animation", "macro", "AD-AS", "IS-LM", "Solow"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Topic :: Multimedia :: Graphics :: Presentation",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
 dependencies = [
     "manim>=0.20.1",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/ddzhang04/manim_ec"
+Repository = "https://github.com/ddzhang04/manim_ec"
+Issues = "https://github.com/ddzhang04/manim_ec/issues"
 
 [project.entry-points."manim.plugins"]
 manim_ec = "manim_ec"
