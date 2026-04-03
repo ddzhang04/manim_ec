@@ -16,5 +16,8 @@ media/
 .vscode/
 .idea/
 
+# Lock file
+uv.lock
+
 # OS
 .DS_Store
