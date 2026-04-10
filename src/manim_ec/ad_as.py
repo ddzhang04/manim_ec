@@ -10,13 +10,30 @@ class ADASDiagram(EconDiagram):
     """Aggregate Demand — Aggregate Supply diagram.
 
     AD is derived from the quantity theory of money: MV = PY, so P = MV/Y.
-    SRAS is a horizontal line at a given price level (Keynesian short run).
+
+    SRAS comes in two flavours controlled by ``sras_slope``:
+
+    * ``sras_slope=None`` (default) — flat/horizontal Keynesian SRAS at
+      ``sras_price``.
+    * ``sras_slope=<positive number>`` — upward-sloping SRAS using the
+      Mankiw formulation::
+
+          P = Pᵉ + slope · (Y − Ȳ)
+
+      where *Pᵉ* is the expected price level (``sras_price``), *Ȳ* is
+      potential output (``lras_y``), and *slope* captures the cost
+      structure ``(1−s)a/s``.  Shifts in SRAS correspond to changes in
+      *Pᵉ*: when firms revise expectations the curve shifts up/down
+      while keeping the same slope.
+
     LRAS is a vertical line at potential output.
 
     Parameters:
         m: Money supply (default 20)
         v: Velocity of money (default 1)
-        sras_price: Short-run price level (default 4)
+        sras_price: Short-run price level / expected price Pᵉ (default 4)
+        sras_slope: SRAS slope.  ``None`` → flat.  Positive → upward-sloping
+            ``P = Pᵉ + slope·(Y − Ȳ)``.
         lras_y: Potential output / natural rate of output (default 5)
     """
 
@@ -25,9 +42,9 @@ class ADASDiagram(EconDiagram):
         m=20,
         v=1,
         sras_price=4,
+        sras_slope=None,
         lras_y=5,
         show_equilibrium=True,
-        numbered_eq=False,
         sras_only=False,
         lras_only=False,
         **kwargs,
@@ -40,10 +57,11 @@ class ADASDiagram(EconDiagram):
         self._m = m
         self._v = v
         self._sras_price = sras_price
+        self._sras_slope = sras_slope
         self._lras_y = lras_y
 
         ad_func = self._make_ad_func(m, v)
-        sras_func = self._make_sras_func(sras_price)
+        sras_func = self._make_sras_func(sras_price, sras_slope, lras_y)
 
         y_max = kwargs.get("y_range", [0, 10, 1])[1]
         ad_x_min = self._ad_x_min(m, v, y_max)
@@ -62,8 +80,7 @@ class ADASDiagram(EconDiagram):
             )
 
         if show_equilibrium and not lras_only:
-            self.mark_equilibrium("ad", "sras", label_x="Y", label_y="P",
-                                  numbered=numbered_eq)
+            self.mark_equilibrium("ad", "sras", label_x="Y*", label_y="P*")
 
     @staticmethod
     def _make_ad_func(m, v):
@@ -78,13 +95,25 @@ class ADASDiagram(EconDiagram):
         return max((m * v) / y_max, 0.1)
 
     @staticmethod
-    def _make_sras_func(price):
-        """Flat SRAS at a given price level."""
-        return lambda y: price
+    def _make_sras_func(price, slope=None, y_bar=None):
+        """SRAS curve.
+
+        Flat when slope is None: P = price.
+        Upward-sloping: P = Pᵉ + slope·(Y − Ȳ), where price = Pᵉ and
+        y_bar = Ȳ (potential output).
+        """
+        if slope is None:
+            return lambda y: price
+        return lambda y: price + slope * (y - y_bar)
 
     @property
     def _lr_price(self):
-        """Long-run equilibrium price: P = MV / Y_potential."""
+        """Long-run equilibrium expected price Pᵉ.
+
+        In long-run equilibrium expectations are correct: Pᵉ = P = MV/Ȳ.
+        For the sloped SRAS P = Pᵉ + slope·(Y − Ȳ), at Y = Ȳ the
+        deviation term vanishes, so Pᵉ = MV/Ȳ regardless of slope.
+        """
         return (self._m * self._v) / self._lras_y
 
     def shift_ad(self, m=None, v=None, run_time=1, show_arrows=False):
@@ -99,10 +128,16 @@ class ADASDiagram(EconDiagram):
             show_arrows=show_arrows,
         )
 
-    def shift_sras(self, sras_price, run_time=1, show_arrows=False):
-        """Animate SRAS shifting to a new price level."""
-        self._sras_price = sras_price
-        new_func = self._make_sras_func(sras_price)
+    def shift_sras(self, sras_price=None, sras_slope=None, run_time=1,
+                   show_arrows=False):
+        """Animate SRAS shifting to a new expected price Pᵉ and/or slope."""
+        if sras_price is not None:
+            self._sras_price = sras_price
+        if sras_slope is not None:
+            self._sras_slope = sras_slope
+        new_func = self._make_sras_func(
+            self._sras_price, self._sras_slope, self._lras_y,
+        )
         return self.get_shift_animation(
             "sras", new_func, run_time=run_time, show_arrows=show_arrows,
         )
@@ -136,7 +171,7 @@ class ADASDiagram(EconDiagram):
         to P = MV / Y_potential, bringing the economy back to potential output.
         The animation is slow by default (2s) to show the gradual adjustment.
         """
-        return self.shift_sras(self._lr_price, run_time=run_time,
+        return self.shift_sras(sras_price=self._lr_price, run_time=run_time,
                                show_arrows=show_arrows)
 
     # ---- Demand shocks ----
@@ -188,7 +223,7 @@ class ADASDiagram(EconDiagram):
 
         Returns a list of animations to play in sequence.
         """
-        anims = [self.shift_sras(sras_price, show_arrows=show_arrows)]
+        anims = [self.shift_sras(sras_price=sras_price, show_arrows=show_arrows)]
         if long_run:
             self._append_long_run(anims, lr_run_time, show_arrows)
         return anims
@@ -202,7 +237,7 @@ class ADASDiagram(EconDiagram):
 
         Returns a list of animations to play in sequence.
         """
-        anims = [self.shift_sras(sras_price, show_arrows=show_arrows)]
+        anims = [self.shift_sras(sras_price=sras_price, show_arrows=show_arrows)]
         if long_run:
             self._append_long_run(anims, lr_run_time, show_arrows)
         return anims
